@@ -114,3 +114,9 @@ final class Cleaner {
         }.value
     }
 }
+
+/// `Cleaner.Report` wrapped so it can drive `.sheet(item:)`.
+struct CleanReportBox: Identifiable {
+    let id = UUID()
+    let report: Cleaner.Report
+}

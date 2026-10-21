@@ -21,6 +21,10 @@ final class AppModel {
     private(set) var hasFullDiskAccess = Permissions.hasFullDiskAccess
     /// Folder the disk map is zoomed into.
     var mapFocus: ScanNode?
+    /// Items waiting for the user to confirm a cleanup (drives the confirmation sheet).
+    var pendingClean: [JunkItem]?
+    /// Result of the last cleanup (drives the celebration sheet).
+    var cleanReport: CleanReportBox?
     let cleaner = Cleaner()
 
     @ObservationIgnored private var activeProgress: ScanProgress?
@@ -112,6 +116,26 @@ final class AppModel {
 
     // MARK: - Cleaning
 
+    /// Bytes free after cleaning the current selection and emptying the Trash.
+    var projectedFree: Int64 { disk.free + selectedBytes + cleaner.trashedBytes }
+
+    func requestClean(_ items: [JunkItem]) {
+        guard !items.isEmpty else { return }
+        pendingClean = items
+    }
+
+    func confirmPendingClean() {
+        guard let items = pendingClean else { return }
+        pendingClean = nil
+        Task { cleanReport = CleanReportBox(report: await clean(items)) }
+    }
+
+    func artifactKind(for item: JunkItem) -> ProjectArtifact.Kind? {
+        guard item.id.hasPrefix("artifact:") else { return nil }
+        let path = String(item.id.dropFirst("artifact:".count))
+        return result?.artifacts.first { $0.path == path }?.kind
+    }
+
     func clean(_ items: [JunkItem]) async -> Cleaner.Report {
         let report = await cleaner.clean(items)
         selection.subtract(items.map(\.id))
@@ -164,6 +188,13 @@ final class AppModel {
         case "scan": scan(root: arg.isEmpty ? NSHomeDirectory() : arg)
         case "section": section = Section(rawValue: arg) ?? .overview
         case "focus": mapFocus = result?.root.node(atPath: arg)
+        case "demo-report":
+            // Shows the celebration without touching any files.
+            var report = Cleaner.Report()
+            report.movedToTrash = Int64(arg) ?? 14_800_000_000
+            cleanReport = CleanReportBox(report: report)
+        case "confirm":
+            pendingClean = selectedItems
         default: break
         }
     }

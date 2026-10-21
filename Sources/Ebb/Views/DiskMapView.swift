@@ -6,41 +6,58 @@ struct DiskMapView: View {
     var body: some View {
         if let root = model.result?.root {
             let focus = model.mapFocus ?? root
-            VStack(spacing: 0) {
-                breadcrumb(focus: focus, root: root)
+            VStack(alignment: .leading, spacing: 12) {
+                header(focus: focus, root: root)
                 GeometryReader { geo in
                     TreemapCanvas(cells: Treemap.layout(focus, in: CGRect(origin: .zero, size: geo.size)), model: model)
+                        .id(ObjectIdentifier(focus))
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 }
-                .padding(12)
+                .animation(.easeInOut(duration: 0.25), value: ObjectIdentifier(focus))
             }
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
+            .padding(.bottom, 20)
         }
     }
 
-    private func breadcrumb(focus: ScanNode, root: ScanNode) -> some View {
+    private func header(focus: ScanNode, root: ScanNode) -> some View {
         var chain: [ScanNode] = []
         var node: ScanNode? = focus
         while let current = node {
             chain.insert(current, at: 0)
             node = current === root ? nil : current.parent
         }
-        return HStack(spacing: 4) {
-            Button { model.mapFocus = focus.parent.flatMap { focus === root ? nil : $0 } } label: {
-                Image(systemName: "chevron.left")
-            }
-            .disabled(focus === root)
-            ForEach(Array(chain.enumerated()), id: \.offset) { index, node in
-                if index > 0 { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
-                Button(index == 0 ? (node.name as NSString).abbreviatingWithTildeInPath : node.name) {
-                    model.mapFocus = node === root ? nil : node
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Disk Map").font(.rounded(28, .bold))
+                    Text("Bigger blocks take more space. Click a folder to dive in, right-click for actions.")
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-                .fontWeight(node === focus ? .semibold : .regular)
+                Spacer()
+                Text(focus.size.bytes).font(.rounded(22, .bold)).foregroundStyle(Tide.gradient)
             }
-            Spacer()
-            Text(focus.size.bytes).monospacedDigit().foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Button { model.mapFocus = focus === root ? nil : (focus.parent === root ? nil : focus.parent) } label: {
+                    Image(systemName: "chevron.left").frame(width: 14)
+                }
+                .buttonStyle(GlassButtonStyle())
+                .disabled(focus === root)
+                ScrollView(.horizontal) {
+                    HStack(spacing: 4) {
+                        ForEach(Array(chain.enumerated()), id: \.offset) { index, node in
+                            if index > 0 { Image(systemName: "chevron.compact.right").foregroundStyle(.tertiary) }
+                            FilterChip(title: index == 0 ? (node.name as NSString).abbreviatingWithTildeInPath : node.name,
+                                       symbol: index == 0 ? "house.fill" : nil, isOn: node === focus) {
+                                model.mapFocus = node === root ? nil : node
+                            }
+                        }
+                    }
+                }
+                .scrollIndicators(.never)
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
     }
 }
 
@@ -92,7 +109,7 @@ enum Treemap {
     }
 
     /// `Color.mix` needs macOS 15; NSColor blending works on 14.
-    private static func lighter(_ color: Color, by fraction: CGFloat) -> Color {
+    static func lighter(_ color: Color, by fraction: CGFloat) -> Color {
         Color(nsColor: NSColor(color).blended(withFraction: fraction, of: .white) ?? NSColor(color))
     }
 
@@ -152,6 +169,7 @@ private struct TreemapCanvas: View {
     let model: AppModel
 
     @ViewState private var hovered: Int?
+    @ViewState private var hoverPoint: CGPoint = .zero
     @ViewState private var pendingTrash: ScanNode?
 
     var body: some View {
@@ -159,19 +177,26 @@ private struct TreemapCanvas: View {
             for (index, cell) in cells.enumerated() {
                 let rect = cell.rect.insetBy(dx: 1, dy: 1)
                 guard rect.width > 1, rect.height > 1 else { continue }
-                let shape = Path(roundedRect: rect, cornerRadius: cell.depth == 0 ? 7 : 4, style: .continuous)
-                context.fill(shape, with: .color(cell.color))
+                let shape = Path(roundedRect: rect, cornerRadius: cell.depth == 0 ? 9 : 5, style: .continuous)
+                // A light-to-base gradient gives each block a little depth.
+                context.fill(shape, with: .linearGradient(
+                    Gradient(colors: [Treemap.lighter(cell.color, by: 0.16), cell.color]),
+                    startPoint: CGPoint(x: rect.minX, y: rect.minY), endPoint: CGPoint(x: rect.minX, y: rect.maxY)))
+                context.stroke(shape, with: .color(.white.opacity(0.12)), lineWidth: 1)
                 if index == hovered {
-                    context.fill(shape, with: .color(.white.opacity(0.18)))
-                    context.stroke(shape, with: .color(.white), lineWidth: 2)
+                    context.fill(shape, with: .color(.white.opacity(0.16)))
+                    context.stroke(shape, with: .color(.white.opacity(0.9)), lineWidth: 2)
                 }
                 drawLabel(cell, in: rect, context: context)
             }
         }
         .onContinuousHover { phase in
             switch phase {
-            case .active(let point): hovered = cells.lastIndex { $0.rect.contains(point) }
-            case .ended: hovered = nil
+            case .active(let point):
+                hovered = cells.lastIndex { $0.rect.contains(point) }
+                hoverPoint = point
+            case .ended:
+                hovered = nil
             }
         }
         .onTapGesture { location in
@@ -192,7 +217,17 @@ private struct TreemapCanvas: View {
                     .disabled(model.protection(for: node.path) != nil || model.isScanning)
             }
         }
-        .overlay(alignment: .bottomLeading) { hoverInfo }
+        .overlay(alignment: .topLeading) {
+            GeometryReader { geo in
+                hoverInfo
+                    .fixedSize()
+                    // Stay next to the cursor but inside the map.
+                    .offset(x: min(hoverPoint.x + 14, max(0, geo.size.width - 360)),
+                            y: hoverPoint.y + 64 > geo.size.height ? hoverPoint.y - 52 : hoverPoint.y + 18)
+            }
+            .allowsHitTesting(false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .confirmationDialog("Move \(pendingTrash?.name ?? "") to the Trash?",
                             isPresented: Binding(get: { pendingTrash != nil }, set: { if !$0 { pendingTrash = nil } })) {
             Button("Move to Trash", role: .destructive) {
@@ -236,8 +271,7 @@ private struct TreemapCanvas: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .background(.regularMaterial, in: Capsule())
-            .padding(10)
-            .allowsHitTesting(false)
+            .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
         }
     }
 }

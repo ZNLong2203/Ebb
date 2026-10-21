@@ -99,7 +99,7 @@ enum Scanner {
     /// Directories smaller than this forget their children after being measured.
     static let pruneBelow: Int64 = 8 << 20
     /// Files at least this big are listed under "Large files".
-    static let largeFileThreshold: Int64 = 100 << 20
+    static let largeFileThreshold: Int64 = 100_000_000
 
     static func scan(root: String, progress: ScanProgress, protected allProtected: ProtectedLocations = .none) -> ScanResult {
         let started = Date()
