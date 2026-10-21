@@ -1,6 +1,6 @@
 cask "ebb" do
   version "0.1.0"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "1a4612d64aacc3756712ef77c9073df575a73f33af9d6558e15ae16bb65ce6e2"
 
   url "https://github.com/ZNLong2203/Ebb/releases/download/v#{version}/Ebb-#{version}.zip"
   name "Ebb"
