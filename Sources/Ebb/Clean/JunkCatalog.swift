@@ -214,7 +214,8 @@ struct JunkCatalog {
         let root = expand("~/Library/Caches")
         let claimed: Set<String> = ["Homebrew", "pip", "Yarn", "CocoaPods", "JetBrains"]
         var entries: [(name: String, path: String, size: Int64)] = []
-        for name in Scanner.listDirectory(root) where !claimed.contains(name) {
+        // Apple's own caches are macOS's business (several are privacy-protected, too), so leave them alone.
+        for name in Scanner.listDirectory(root) where !claimed.contains(name) && !name.hasPrefix("com.apple.") {
             let path = root + "/" + name
             let size = sizeOf(path)
             if size >= 1 << 20 { entries.append((name, path, size)) }

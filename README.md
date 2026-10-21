@@ -19,6 +19,7 @@
 
 <p align="center">
   <a href="https://github.com/ZNLong2203/Ebb/releases/latest/download/Ebb.dmg"><b>⬇️ Download Ebb.dmg</b></a>
+  &nbsp;·&nbsp; <a href="https://znlong2203.github.io/Ebb/">🌐 Website</a>
   &nbsp;·&nbsp; <a href="#homebrew">Homebrew</a>
   &nbsp;·&nbsp; <a href="#features">Features</a>
   &nbsp;·&nbsp; <a href="#how-ebb-decides-what-is-safe">Safety</a>
@@ -53,10 +54,19 @@ Ebb groups everything it finds. Each item has a clear label, its size, and a one
 | Project build folders | `node_modules`, `.next`, Python virtualenvs, Rust `target`, SwiftPM `.build`, CocoaPods `Pods`, Gradle `.gradle`, all detected by their manifest files |
 | Code editors | Cursor, VS Code, Windsurf, VSCodium and JetBrains caches. Settings and extensions are never touched |
 | Xcode & simulators | DerivedData, simulator caches, device support files, archives, unavailable simulators |
-| Docker | Unused containers, images, networks and build cache, through Docker's own command |
+| Docker | Every image, container, volume and the build cache, in their own view (see below) |
 | App caches, logs & backups | Per-app caches, logs and crash reports, old iPhone backups, the Trash |
 
 <p align="center"><img src="docs/screenshots/junk.png" alt="Developer Junk: group cards with tool icons, size bars and safe / review labels"></p>
+
+### 🐳 Docker, image by image
+Docker Desktop keeps everything inside one big disk image, so macOS can't tell you what's in it. Ebb can. It lists every image, container, volume and the build cache with its size, marks what's unused, and removes only what you pick. It runs `docker rm`, `docker rmi`, `docker volume rm` and `docker builder prune` for you.
+
+- Untagged and unused images are flagged, along with how much each one frees, since shared layers stay put.
+- Running containers, and volumes still mounted by a container, are locked.
+- Unused volumes are never pre-selected, because they can hold database data.
+
+<p align="center"><img src="docs/screenshots/docker.png" alt="Docker view: images, containers, volumes and build cache with sizes, unused items flagged"></p>
 
 ### 🗺️ Disk Map
 A treemap of the scanned folder, in which bigger blocks take more space. Click a folder to dive in, or right-click to show it in Finder or move it to the Trash.
@@ -72,7 +82,7 @@ Every file over 100 MB, with Quick Look thumbnails and an "untouched for" badge.
 - The disk bar shows how much space you'll have **after** cleaning, before you click anything.
 - **Quick wins** let you clear the biggest safe items in one click.
 - A short explainer covers what "System Data" really is: local Time Machine snapshots and purgeable space.
-- A cleanup summary keeps the one remaining step in front of you, which is emptying the Trash.
+- A live progress view while cleaning (the water drains as items are cleared), then a summary that keeps the one remaining step in front of you, which is emptying the Trash.
 
 <p align="center">
   <img src="docs/screenshots/welcome.png" width="49%" alt="Welcome screen with waves washing onto sand and two onboarding steps">
@@ -180,6 +190,7 @@ A debug build listens for the distributed notification `io.github.znlong2203.ebb
 - `clean-prefix:<id>`
 - `undo-all`
 - `demo-report:<bytes>`
+- `docker-demo`
 
 They drive the UI for screenshots and tests. To publish a release, run `scripts/release.sh 0.2.0`.
 

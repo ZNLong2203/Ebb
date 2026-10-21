@@ -205,6 +205,10 @@ private struct MainView: View {
                 SidebarItem(section: .overview, title: "Overview", symbol: "sparkles", color: Tide.ocean, badge: nil)
                 SidebarItem(section: .junk, title: "Developer Junk", symbol: "wand.and.stars", color: Tide.lagoon,
                             badge: model.allItems.reduce(0) { $0 + $1.size }.bytes)
+                if model.dockerInstalled {
+                    SidebarItem(section: .docker, title: "Docker", symbol: "ferry.fill", color: Tide.ocean,
+                                badge: model.docker.snapshot.map { ($0.imagesSize + $0.containersSize + $0.volumesSize + $0.buildCacheSize).bytes })
+                }
                 SidebarItem(section: .largeFiles, title: "Large Files", symbol: "doc.text.magnifyingglass", color: Tide.coral,
                             badge: "\(model.result?.largeFiles.count ?? 0)")
                 SidebarItem(section: .diskMap, title: "Disk Map", symbol: "square.grid.3x3.square", color: Tide.lavender, badge: nil)
@@ -226,6 +230,7 @@ private struct MainView: View {
                     switch model.section ?? .overview {
                     case .overview: OverviewView(model: model)
                     case .junk: JunkView(model: model)
+                    case .docker: DockerView(model: model)
                     case .largeFiles: LargeFilesView(model: model)
                     case .diskMap: DiskMapView(model: model)
                     }
@@ -251,13 +256,8 @@ private struct MainView: View {
             }
         }
         .navigationTitle("")
-        .sheet(isPresented: Binding(get: { model.pendingClean != nil }, set: { if !$0 { model.pendingClean = nil } })) {
-            if let items = model.pendingClean {
-                ConfirmCleanSheet(items: items, model: model)
-            }
-        }
-        .sheet(item: $model.cleanReport) { box in
-            CelebrationSheet(report: box.report, model: model)
+        .sheet(item: $model.cleanFlow) { flow in
+            CleanFlowSheet(flow: flow, model: model)
         }
     }
 

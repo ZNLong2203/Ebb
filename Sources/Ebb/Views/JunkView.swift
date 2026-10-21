@@ -239,7 +239,10 @@ private struct JunkRow: View {
                             .font(.callout)
                             .foregroundStyle(.secondary)
                         Spacer()
-                        if let path = item.revealPath {
+                        if item.id == "docker", model.dockerInstalled {
+                            Button { model.section = .docker } label: { Label("See What's Inside", systemImage: "ferry") }
+                                .buttonStyle(GlassButtonStyle())
+                        } else if let path = item.revealPath {
                             Button { model.reveal(path) } label: { Label("Show in Finder", systemImage: "folder") }
                                 .buttonStyle(GlassButtonStyle())
                         }

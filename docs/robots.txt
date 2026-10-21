@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://znlong2203.github.io/Ebb/sitemap.xml

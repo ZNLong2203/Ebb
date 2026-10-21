@@ -7,7 +7,13 @@ import Foundation
 struct ProtectedLocations: Sendable {
     private static let relativePaths = [
         "Desktop", "Documents", "Downloads",
-        "Pictures/Photos Library.photoslibrary", "Music/Music", "Movies/TV",
+        "Pictures/Photos Library.photoslibrary", "Music", "Movies/TV",
+        // Apple media and personal-data caches: reading them asks for Apple Music / media library access.
+        "Library/Caches/com.apple.Music", "Library/Caches/com.apple.AMPArtworkAgent", "Library/Caches/com.apple.AMPLibraryAgent",
+        "Library/Caches/com.apple.AMPDevicesAgent", "Library/Caches/com.apple.iTunes", "Library/Caches/com.apple.TV",
+        "Library/Caches/com.apple.podcasts", "Library/Caches/com.apple.Photos", "Library/Caches/com.apple.Safari",
+        "Library/Caches/com.apple.mail", "Library/Caches/com.apple.HomeKit", "Library/Caches/CloudKit",
+        "Library/Caches/FamilyCircle",
         "Library/Containers", "Library/Group Containers", "Library/Mobile Documents", "Library/CloudStorage",
         "Library/Mail", "Library/Safari", "Library/Messages", "Library/Calendars", "Library/Reminders",
         "Library/HomeKit", "Library/Cookies", "Library/Suggestions", "Library/Biome", "Library/Accounts",

@@ -19,13 +19,28 @@ final class Cleaner {
 
     struct Report {
         var movedToTrash: Int64 = 0
+        /// Estimated space released by tools' own commands (docker rmi, conda clean…).
+        var freedByCommands: Int64 = 0
         var commands: [CommandRun] = []
         var failures: [String] = []
         var emptiedTrash = false
     }
 
+    /// Live state of the running cleanup, shown while it works so it never looks frozen.
+    struct Progress {
+        var total = 0
+        var completed = 0
+        var bytesTotal: Int64 = 0
+        var bytesDone: Int64 = 0
+        var current = ""
+        var detail = ""
+
+        var fraction: Double { bytesTotal > 0 ? Double(bytesDone) / Double(bytesTotal) : Double(completed) / Double(max(total, 1)) }
+    }
+
     private(set) var history: [TrashedItem] = []
     private(set) var isWorking = false
+    private(set) var progress = Progress()
 
     /// Bytes sitting in the Trash because of Ebb; they only become free space once the Trash is emptied.
     var trashedBytes: Int64 { history.reduce(0) { $0 + $1.size } }
@@ -34,9 +49,12 @@ final class Cleaner {
         isWorking = true
         defer { isWorking = false }
         var report = Report()
+        progress = Progress(total: items.count, bytesTotal: items.reduce(0) { $0 + $1.size })
         for item in items {
+            progress.current = item.title
             switch item.action {
             case .trash(let targets):
+                progress.detail = "Moving to the Trash…"
                 for target in targets {
                     do {
                         try await moveToTrash(URL(fileURLWithPath: target.path), size: target.size)
@@ -46,13 +64,23 @@ final class Cleaner {
                     }
                 }
             case .command(let command):
+                progress.detail = "Running \(command)"
                 let (status, output) = await Self.run(command)
                 report.commands.append(CommandRun(command: command, output: output, succeeded: status == 0))
-                if status != 0 { report.failures.append("`\(command)` exited with status \(status)") }
+                if status == 0 {
+                    report.freedByCommands += item.size
+                } else {
+                    report.failures.append("`\(command)` exited with status \(status)")
+                }
             case .emptyTrash:
+                progress.detail = "Emptying the Trash…"
                 if let error = await emptyTrash() { report.failures.append(error) } else { report.emptiedTrash = true }
             }
+            progress.completed += 1
+            progress.bytesDone += item.size
         }
+        // Keep the last item on screen; the sheet lingers a moment before showing the result.
+        progress.detail = "Finishing up…"
         return report
     }
 
@@ -115,8 +143,15 @@ final class Cleaner {
     }
 }
 
-/// `Cleaner.Report` wrapped so it can drive `.sheet(item:)`.
-struct CleanReportBox: Identifiable {
+/// One trip through the cleanup sheet.
+struct CleanFlow: Identifiable {
+    enum Phase {
+        case confirm
+        case running
+        case done(Cleaner.Report)
+    }
+
     let id = UUID()
-    let report: Cleaner.Report
+    let items: [JunkItem]
+    var phase: Phase = .confirm
 }

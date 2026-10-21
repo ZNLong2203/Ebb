@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ebb – Free Mac Disk Cleaner for Developers (node_modules, Docker, Xcode)</title>
+<meta name="description" content="Ebb is a free, open-source disk cleaner for Mac that understands developer junk. Safely clear npm and pip caches, node_modules, Docker images and volumes, Xcode DerivedData and large files, with undo.">
+<meta name="keywords" content="mac disk cleaner, free disk cleaner mac, clean up mac storage, system data mac, free CleanMyMac alternative, DaisyDisk alternative, node_modules cleaner, docker disk space mac, delete docker images, xcode deriveddata, npm cache clean, conda clean, mac storage full, open source mac cleaner">
+<meta name="author" content="ZNLong2203">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0b2e6b">
+<link rel="canonical" href="https://znlong2203.github.io/Ebb/">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Ebb">
+<meta property="og:title" content="Ebb – the free disk cleaner for Mac that understands developer junk">
+<meta property="og:description" content="Find and safely remove npm caches, node_modules, Docker images, Xcode DerivedData and big old files. Free, open source, Trash-first.">
+<meta property="og:url" content="https://znlong2203.github.io/Ebb/">
+<meta property="og:image" content="https://znlong2203.github.io/Ebb/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ebb – free Mac disk cleaner for developers">
+<meta name="twitter:description" content="npm caches, node_modules, Docker, Xcode and large files, explained and cleaned to the Trash with undo. Free and open source.">
+<meta name="twitter:image" content="https://znlong2203.github.io/Ebb/social-preview.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Ebb",
+  "description": "A free, open-source disk cleaner for Mac that understands developer junk: package manager caches, node_modules, Docker, Xcode and large files.",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "macOS 14 or later",
+  "softwareVersion": "0.2.0",
+  "license": "https://opensource.org/licenses/MIT",
+  "url": "https://znlong2203.github.io/Ebb/",
+  "downloadUrl": "https://github.com/ZNLong2203/Ebb/releases/latest/download/Ebb.dmg",
+  "image": "https://znlong2203.github.io/Ebb/icon.png",
+  "screenshot": "https://znlong2203.github.io/Ebb/screenshots/overview.png",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Person", "name": "ZNLong2203", "url": "https://github.com/ZNLong2203" },
+  "codeRepository": "https://github.com/ZNLong2203/Ebb"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "How do I clear System Data on my Mac?",
+      "acceptedAnswer": { "@type": "Answer", "text": "System Data is mostly caches, developer tools, Docker and Time Machine local snapshots. Ebb shows the parts it can see (package manager caches, Xcode DerivedData, Docker data, app caches and logs), explains each one and cleans it to the Trash. macOS removes snapshots and purgeable space by itself when the disk runs low." } },
+    { "@type": "Question", "name": "Is it safe to delete node_modules folders?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. node_modules can always be reinstalled with npm install. Ebb only pre-selects node_modules in projects you haven't touched for over 30 days, never ones you worked on this week, and moves them to the Trash so you can undo." } },
+    { "@type": "Question", "name": "Why is Docker using so much disk space on my Mac?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Docker Desktop stores every image, stopped container, volume and build cache inside one disk image. Ebb's Docker view lists all of them with their sizes, shows which are unused, and removes the ones you pick with Docker's own commands." } },
+    { "@type": "Question", "name": "Is Ebb free?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Ebb is free and open source under the MIT license, with no subscription, account or upsell." } },
+    { "@type": "Question", "name": "Does Ebb delete files permanently?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Files and folders go to the Trash and Undo All puts them back. Only tools' own cleanup commands (such as docker rm or conda clean) and emptying the Trash can't be undone, and Ebb says so before it runs them." } }
+  ]
+}
+</script>
+
+<style>
+:root {
+  --abyss: #08214f; --deep: #0d3d85; --ocean: #1266c2; --lagoon: #1fb3c8; --foam: #70e0d8;
+  --sand: #f2c987; --coral: #f2785c; --kelp: #40b37f;
+  --bg: #f6f9fc; --card: #ffffff; --text: #0f1b2d; --muted: #5a6b80; --line: #e3e9f1;
+  --shadow: 0 10px 30px rgba(15, 40, 80, .10);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0a1220; --card: #111c2e; --text: #e8eef6; --muted: #9aa9bd; --line: #1f2c40; --shadow: 0 10px 30px rgba(0,0,0,.35); }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font: 17px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); }
+h1, h2, h3 { font-family: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.15; margin: 0 0 .5em; }
+a { color: var(--ocean); }
+img { max-width: 100%; height: auto; display: block; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+/* Hero: open sea with waves rolling onto sand */
+.hero { position: relative; overflow: hidden; color: #fff; text-align: center;
+  background: linear-gradient(180deg, var(--abyss), var(--deep) 55%, var(--ocean)); padding: 72px 0 0; }
+.hero nav { display: flex; justify-content: space-between; align-items: center; max-width: 1120px; margin: -48px auto 40px; padding: 0 24px; }
+.hero nav a { color: #fff; text-decoration: none; opacity: .85; font-weight: 500; margin-left: 22px; }
+.hero nav a:hover { opacity: 1; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; }
+.brand img { width: 32px; height: 32px; }
+.hero .icon { width: 128px; height: 128px; margin: 0 auto 20px; filter: drop-shadow(0 16px 24px rgba(0,0,0,.35)); }
+.hero h1 { font-size: clamp(36px, 5.5vw, 62px); letter-spacing: -.02em; }
+.hero p.lead { font-size: clamp(18px, 2.1vw, 22px); max-width: 760px; margin: 0 auto 30px; opacity: .88; }
+.cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
+.btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 26px; border-radius: 999px; font-weight: 700; text-decoration: none; font-size: 17px; transition: transform .15s ease, box-shadow .15s ease; }
+.btn.primary { color: #fff; background: linear-gradient(90deg, var(--ocean), var(--lagoon)); box-shadow: 0 8px 26px rgba(31,179,200,.45); }
+.btn.primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(31,179,200,.6); }
+.btn.ghost { color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); }
+.brew { display: inline-flex; align-items: center; gap: 10px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.15); border-radius: 12px; padding: 10px 14px; font: 14px/1.4 ui-monospace, "SF Mono", Menlo, monospace; text-align: left; }
+.brew button { background: rgba(255,255,255,.15); color: #fff; border: 0; border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; }
+.chips { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 22px 0 36px; font-size: 14px; opacity: .85; }
+.chips span { padding: 4px 12px; border-radius: 999px; background: rgba(255,255,255,.1); }
+.shot { position: relative; z-index: 2; max-width: 1000px; margin: 0 auto -40px; border-radius: 14px; }
+.waves { position: relative; height: 120px; margin-top: -60px; z-index: 1; }
+.waves svg { position: absolute; bottom: 0; width: 200%; height: 100%; animation: slide linear infinite; }
+.waves .w1 { animation-duration: 18s; opacity: .45; }
+.waves .w2 { animation-duration: 12s; animation-direction: reverse; opacity: .6; }
+.waves .w3 { animation-duration: 26s; }
+@keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .waves svg { animation: none; } html { scroll-behavior: auto; } }
+
+section { padding: 84px 0; }
+section.alt { background: var(--card); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.eyebrow { color: var(--lagoon); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
+h2 { font-size: clamp(28px, 3.4vw, 42px); letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: 19px; max-width: 760px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-top: 36px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: var(--shadow); }
+.stat b { display: block; font: 700 38px/1.1 ui-rounded, -apple-system, sans-serif; background: linear-gradient(90deg, var(--ocean), var(--lagoon)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.stat span { color: var(--muted); font-size: 15px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; margin-top: 36px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 26px; box-shadow: var(--shadow); }
+.card h3 { font-size: 21px; display: flex; align-items: center; gap: 10px; }
+.card p { color: var(--muted); margin: 0; }
+.tile { width: 38px; height: 38px; border-radius: 11px; display: inline-grid; place-items: center; color: #fff; font-size: 19px; flex: none; }
+.split { display: grid; grid-template-columns: 1fr 1.25fr; gap: 48px; align-items: center; }
+.split.flip { grid-template-columns: 1.25fr 1fr; }
+.split img, .screens img { border-radius: 14px; }
+@media (max-width: 860px) { .split, .split.flip { grid-template-columns: 1fr; } .hero nav .links { display: none; } }
+ul.ticks { list-style: none; padding: 0; margin: 18px 0 0; }
+ul.ticks li { padding-left: 30px; position: relative; margin: 10px 0; }
+ul.ticks li::before { content: "✓"; position: absolute; left: 0; color: var(--kelp); font-weight: 800; }
+table { width: 100%; border-collapse: collapse; margin-top: 26px; background: var(--card); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
+th, td { text-align: left; padding: 14px 18px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+td.yes { color: var(--kelp); font-weight: 700; }
+td.no { color: var(--coral); }
+code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .9em; }
+pre { background: #0b1a33; color: #d7e7ff; padding: 16px 18px; border-radius: 12px; overflow-x: auto; }
+.steps { counter-reset: step; display: grid; gap: 18px; margin-top: 30px; }
+.step { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 22px 74px; position: relative; box-shadow: var(--shadow); }
+.step::before { counter-increment: step; content: counter(step); position: absolute; left: 22px; top: 22px; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; background: linear-gradient(135deg, var(--ocean), var(--lagoon)); }
+details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; margin: 12px 0; }
+summary { cursor: pointer; font-weight: 650; font-size: 18px; }
+details p { color: var(--muted); margin: 12px 0 0; }
+.final { text-align: center; color: #fff; background: linear-gradient(180deg, var(--ocean), var(--deep)); }
+.final .sub { color: rgba(255,255,255,.85); margin: 0 auto 28px; }
+footer { padding: 34px 0 50px; color: var(--muted); font-size: 15px; text-align: center; }
+footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <nav aria-label="Main">
+    <div class="brand"><img src="icon.png" alt="" width="32" height="32"> Ebb</div>
+    <div class="links">
+      <a href="#features">Features</a>
+      <a href="#docker">Docker</a>
+      <a href="#safety">Safety</a>
+      <a href="#install">Install</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/ZNLong2203/Ebb">GitHub</a>
+    </div>
+  </nav>
+  <div class="wrap">
+    <img class="icon" src="icon.png" alt="Ebb icon: a tide pulling back over sand, uncovering files" width="128" height="128">
+    <h1>Free up space on your Mac.<br>Let the clutter wash away.</h1>
+    <p class="lead">Ebb is a <strong>free, open-source disk cleaner for Mac</strong> that understands developer junk: npm and pip caches, <code>node_modules</code>, Docker, Xcode and big old files. Every item is explained, and everything goes to the Trash with undo.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/ZNLong2203/Ebb/releases/latest/download/Ebb.dmg">⬇ Download for Mac</a>
+      <a class="btn ghost" href="https://github.com/ZNLong2203/Ebb">★ Star on GitHub</a>
+    </div>
+    <div class="brew" role="group" aria-label="Install with Homebrew">
+      <span id="brewcmd">brew tap znlong2203/ebb https://github.com/ZNLong2203/Ebb &amp;&amp; brew install --cask znlong2203/ebb/ebb</span>
+      <button type="button" onclick="copyBrew(this)">Copy</button>
+    </div>
+    <div class="chips"><span>100% free</span><span>MIT open source</span><span>macOS 14+</span><span>Apple Silicon</span><span>No account, no tracking</span></div>
+    <img class="shot" src="screenshots/overview.png" alt="Ebb overview screen showing 35 GB of safely removable caches, a donut chart of junk groups and a disk bar projecting free space after cleaning" width="1000" height="687">
+  </div>
+  <div class="waves" aria-hidden="true">
+    <svg class="w1" viewBox="0 0 2400 120" preserveAspectRatio="none"><path fill="#1fb3c8" d="M0 60 Q150 20 300 60 T600 60 T900 60 T1200 60 T1500 60 T1800 60 T2100 60 T2400 60 V120 H0Z"/></svg>
+    <svg class="w2" viewBox="0 0 2400 120" preserveAspectRatio="none"><path fill="#70e0d8" d="M0 80 Q200 50 400 80 T800 80 T1200 80 T1600 80 T2000 80 T2400 80 V120 H0Z"/></svg>
+    <svg class="w3" viewBox="0 0 2400 120" preserveAspectRatio="none"><path fill="var(--bg)" d="M0 98 Q300 82 600 98 T1200 98 T1800 98 T2400 98 V120 H0Z"/></svg>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">Why Ebb</p>
+      <h2>Developer Macs fill up with things that rebuild themselves</h2>
+      <p class="sub">Package caches, <code>node_modules</code> in projects you haven't opened in months, Docker images and Xcode leftovers pile up. macOS hides most of them under "System Data". Ebb finds them, tells you what each one is, and clears them safely.</p>
+      <div class="stats">
+        <div class="stat"><b>57 GB</b><span>found on the author's MacBook in the first scan, 35 GB of it safe</span></div>
+        <div class="stat"><b>5.1 s</b><span>to scan 1.2 million files, 6× faster than <code>du</code></span></div>
+        <div class="stat"><b>0%</b><span>CPU when idle, about 50 MB of memory while scanning</span></div>
+        <div class="stat"><b>$0</b><span>no subscription, no upsell, no account</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt" id="features">
+    <div class="wrap">
+      <p class="eyebrow">Features</p>
+      <h2>Everything taking space, explained in plain English</h2>
+      <div class="grid">
+        <div class="card"><h3><span class="tile" style="background:#c63a3a">📦</span>Package manager caches</h3><p>npm, Yarn, pnpm, Bun, pip, uv, conda, Homebrew, Gradle, Cargo, CocoaPods, Go modules and Hugging Face models.</p></div>
+        <div class="card"><h3><span class="tile" style="background:var(--kelp)">🗂️</span>Old project build folders</h3><p><code>node_modules</code>, <code>.next</code>, Python virtualenvs, Rust <code>target</code>, SwiftPM <code>.build</code> and <code>Pods</code>, found through each project's manifest file.</p></div>
+        <div class="card"><h3><span class="tile" style="background:var(--ocean)">🐳</span>Docker, image by image</h3><p>Images, stopped containers, volumes and build cache, with what's unused and what's still needed.</p></div>
+        <div class="card"><h3><span class="tile" style="background:#8c7cf0">🔨</span>Xcode &amp; simulators</h3><p>DerivedData, simulator caches, device support files, archives and unavailable simulators.</p></div>
+        <div class="card"><h3><span class="tile" style="background:var(--coral)">⌨️</span>Code editor caches</h3><p>Cursor, VS Code, Windsurf and JetBrains caches. Your settings and extensions are never touched.</p></div>
+        <div class="card"><h3><span class="tile" style="background:#c9a15c">🗺️</span>Disk Map &amp; Large Files</h3><p>A treemap of your disk, plus every file over 100 MB with thumbnails and an "untouched for" badge.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow">Developer Junk</p>
+        <h2>Clear npm, pip and conda caches and old node_modules</h2>
+        <p class="sub">Each item shows a label, its size and why it's safe. Where a tool has its own cleanup command, Ebb uses it (<code>conda clean</code>, <code>pnpm store prune</code>, <code>go clean -modcache</code>) instead of guessing at files.</p>
+        <ul class="ticks">
+          <li>Projects you touched this week are never pre-selected</li>
+          <li><code>node_modules</code> inside tools such as <code>~/.nvm</code> or <code>~/.vscode</code> are left alone</li>
+          <li>Undo puts everything back from the Trash</li>
+        </ul>
+      </div>
+      <img src="screenshots/junk.png" alt="Developer Junk list grouping npm, conda, uv and pip caches with safety labels and size bars" width="1000" height="687" loading="lazy">
+    </div>
+  </section>
+
+  <section class="alt" id="docker">
+    <div class="wrap split flip">
+      <img src="screenshots/docker.png" alt="Docker view listing images, containers, volumes and build cache with sizes and which ones are unused" width="1000" height="687" loading="lazy">
+      <div>
+        <p class="eyebrow">Docker disk usage on Mac</p>
+        <h2>See why Docker is eating your disk, and fix it</h2>
+        <p class="sub">Docker Desktop keeps every image, stopped container, volume and build cache inside one huge disk image. Ebb opens it up.</p>
+        <ul class="ticks">
+          <li>Sizes for every image, container, volume and the build cache</li>
+          <li>Unused and untagged images flagged, with how much each one frees</li>
+          <li>Volumes in use are locked, so database data isn't lost by accident</li>
+          <li>Removes only what you pick, with <code>docker rm</code>, <code>docker rmi</code>, <code>docker volume rm</code> and <code>docker builder prune</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow">Disk Map</p>
+        <h2>Find what's filling your Mac at a glance</h2>
+        <p class="sub">Bigger blocks take more space. Click a folder to dive in, or right-click to show it in Finder or move it to the Trash. Large Files lists everything over 100 MB, filtered by size and by how long it's sat untouched.</p>
+      </div>
+      <img src="screenshots/disk-map.png" alt="Treemap disk map of project folders, with node_modules and virtualenv blocks standing out" width="1000" height="687" loading="lazy">
+    </div>
+  </section>
+
+  <section class="alt" id="safety">
+    <div class="wrap">
+      <p class="eyebrow">Safety first</p>
+      <h2>How Ebb decides what's safe to delete</h2>
+      <table>
+        <thead><tr><th>Label</th><th>What it means</th><th>Pre-selected?</th></tr></thead>
+        <tbody>
+          <tr><td>✅ <b>Safe</b></td><td>Rebuilds itself automatically: package caches, editor caches, DerivedData, logs</td><td class="yes">Yes</td></tr>
+          <tr><td>👀 <b>Review</b></td><td>Can be rebuilt but costs time or bandwidth: <code>node_modules</code>, AI models, app caches, unused Docker images</td><td>Only projects untouched for 30+ days</td></tr>
+          <tr><td>⚠️ <b>Careful</b></td><td>May hold your data, such as unused Docker volumes and iPhone backups</td><td class="no">Never</td></tr>
+        </tbody>
+      </table>
+      <p class="sub" style="margin-top:22px">Nothing is deleted outright. Files go to the Trash, and <b>Undo All</b> puts them back. Ebb makes no network requests and collects no data.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">Guide</p>
+      <h2>How to free up "System Data" on a Mac</h2>
+      <p class="sub">"System Data" in <em>System Settings → General → Storage</em> lumps together caches, developer tools, Docker and Time Machine snapshots. These are the usual culprits on a developer's Mac, and the commands that clear them. Ebb runs the same checks for you and shows the sizes first.</p>
+      <div class="grid">
+        <div class="card"><h3>npm cache</h3><pre>npm cache clean --force</pre><p>Packages npm downloaded before. They come back on the next install.</p></div>
+        <div class="card"><h3>Docker</h3><pre>docker system df
+docker system prune</pre><p>Removes stopped containers, unused networks, dangling images and build cache.</p></div>
+        <div class="card"><h3>Xcode DerivedData</h3><pre>rm -rf ~/Library/Developer/Xcode/DerivedData</pre><p>Build products Xcode rebuilds. The next build is slower.</p></div>
+        <div class="card"><h3>conda &amp; Homebrew</h3><pre>conda clean --all
+brew cleanup --prune=all</pre><p>Old package tarballs and downloads. Installed tools keep working.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="wrap">
+      <p class="eyebrow">Compare</p>
+      <h2>A free alternative to CleanMyMac and DaisyDisk</h2>
+      <table>
+        <thead><tr><th></th><th>Ebb</th><th>CleanMyMac</th><th>DaisyDisk</th><th>Mole (CLI)</th></tr></thead>
+        <tbody>
+          <tr><td>Price</td><td class="yes">Free</td><td>Subscription</td><td>Paid</td><td class="yes">Free</td></tr>
+          <tr><td>Open source</td><td class="yes">Yes (MIT)</td><td class="no">No</td><td class="no">No</td><td class="yes">Yes (GPL)</td></tr>
+          <tr><td>Native Mac app</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">Terminal</td></tr>
+          <tr><td>Understands developer junk</td><td class="yes">Yes</td><td>Some</td><td class="no">No (sizes only)</td><td class="yes">Yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <p class="eyebrow">Install</p>
+      <h2>Download Ebb in under a minute</h2>
+      <div class="steps">
+        <div class="step"><b>Download <a href="https://github.com/ZNLong2203/Ebb/releases/latest/download/Ebb.dmg">Ebb.dmg</a></b> (about 1 MB) and drag Ebb into Applications.</div>
+        <div class="step"><b>Open it.</b> macOS warns because Ebb isn't notarized yet. Go to <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em>. You only do this once, and Homebrew skips the step.</div>
+        <div class="step"><b>Allow Full Disk Access</b> when Ebb suggests it, so every folder is included. Then click <em>Scan Home</em>.</div>
+      </div>
+      <p class="sub" style="margin-top:22px">Prefer Homebrew?</p>
+      <pre>brew tap znlong2203/ebb https://github.com/ZNLong2203/Ebb
+brew install --cask znlong2203/ebb/ebb</pre>
+      <p class="sub">Requires macOS 14 Sonoma or later on Apple Silicon. Ebb is ad-hoc signed, and you can read every line of the <a href="https://github.com/ZNLong2203/Ebb">source code</a> or build it yourself.</p>
+    </div>
+  </section>
+
+  <section class="alt" id="faq">
+    <div class="wrap">
+      <p class="eyebrow">FAQ</p>
+      <h2>Questions people ask</h2>
+      <details open><summary>How do I clear System Data on my Mac?</summary><p>System Data is mostly caches, developer tools, Docker and Time Machine local snapshots. Ebb shows the parts it can see, explains each one and cleans it to the Trash. macOS removes snapshots and purgeable space by itself when the disk runs low.</p></details>
+      <details><summary>Is it safe to delete node_modules?</summary><p>Yes. <code>npm install</code> brings it back. Ebb only pre-selects <code>node_modules</code> in projects you haven't touched for over 30 days, and you can undo from the Trash.</p></details>
+      <details><summary>Why is Docker using so much space on my Mac?</summary><p>Docker Desktop stores every image, stopped container, volume and build cache in one disk image. Ebb's Docker view lists them with sizes and removes the unused ones you pick with Docker's own commands.</p></details>
+      <details><summary>Does Ebb delete files permanently?</summary><p>No. Files go to the Trash and Undo All puts them back. Only tools' own commands (such as <code>docker rm</code>) and emptying the Trash can't be undone, and Ebb tells you before it runs them.</p></details>
+      <details><summary>Why isn't Ebb on the Mac App Store?</summary><p>App Store apps are sandboxed and can't scan your whole disk, which is the whole point of a disk cleaner.</p></details>
+      <details><summary>Is Ebb really free?</summary><p>Yes. It's MIT-licensed open source, with no subscription, account, ads or tracking.</p></details>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <h2>Give your Mac room to breathe</h2>
+      <p class="sub">Free, open source and Trash-first. Takes a minute to install.</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/ZNLong2203/Ebb/releases/latest/download/Ebb.dmg">⬇ Download Ebb for Mac</a>
+        <a class="btn ghost" href="https://github.com/ZNLong2203/Ebb">★ Star on GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Ebb is MIT-licensed and made by <a href="https://github.com/ZNLong2203">ZNLong2203</a>. Also by me: <a href="https://github.com/ZNLong2203/Islet">Islet</a>, a Dynamic Island for your MacBook notch.</p>
+    <p>Ebb is not affiliated with Apple, Docker, MacPaw or DaisyDisk. All trademarks belong to their owners.</p>
+  </div>
+</footer>
+
+<script>
+function copyBrew(button) {
+  const text = "brew tap znlong2203/ebb https://github.com/ZNLong2203/Ebb && brew install --cask znlong2203/ebb/ebb";
+  navigator.clipboard.writeText(text).then(() => {
+    button.textContent = "Copied ✓";
+    setTimeout(() => { button.textContent = "Copy"; }, 1800);
+  });
+}
+</script>
+</body>
+</html>

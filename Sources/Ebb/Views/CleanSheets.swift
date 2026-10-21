@@ -1,7 +1,38 @@
 import SwiftUI
 
+/// The whole cleanup in one sheet: confirm what will happen, watch it happen, then celebrate.
+struct CleanFlowSheet: View {
+    let flow: CleanFlow
+    let model: AppModel
+
+    var body: some View {
+        Group {
+            switch flow.phase {
+            case .confirm:
+                ConfirmCleanView(items: flow.items, model: model)
+            case .running:
+                CleaningView(progress: model.cleaner.progress)
+            case .done(let report):
+                CelebrationView(report: report, model: model)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: phaseKey)
+        .interactiveDismissDisabled(phaseKey == 1)
+    }
+
+    private var phaseKey: Int {
+        switch flow.phase {
+        case .confirm: 0
+        case .running: 1
+        case .done: 2
+        }
+    }
+}
+
+// MARK: - Confirm
+
 /// Shows exactly what will happen before anything is touched.
-struct ConfirmCleanSheet: View {
+private struct ConfirmCleanView: View {
     let items: [JunkItem]
     let model: AppModel
 
@@ -45,16 +76,15 @@ struct ConfirmCleanSheet: View {
             }
             if !commands.isEmpty {
                 Callout(symbol: "terminal.fill", color: .orange,
-                        text: "\(commands.count) are cleaned with the tool's own command, which can't be undone: "
-                            + commands.compactMap { if case .command(let c) = $0.action { c } else { nil } }.joined(separator: " · "))
+                        text: "\(commands.count) are cleaned with the tool's own command, which can't be undone.")
             }
 
             HStack {
                 Spacer()
-                Button("Cancel") { model.pendingClean = nil }
+                Button("Cancel") { model.dismissCleanFlow() }
                     .buttonStyle(GlassButtonStyle())
                     .keyboardShortcut(.cancelAction)
-                Button { model.confirmPendingClean() } label: { Label("Clean \(total.bytes)", systemImage: "sparkles") }
+                Button { model.confirmClean() } label: { Label("Clean \(total.bytes)", systemImage: "sparkles") }
                     .buttonStyle(TideButtonStyle())
                     .keyboardShortcut(.defaultAction)
             }
@@ -80,8 +110,65 @@ private struct Callout: View {
     }
 }
 
+// MARK: - Cleaning
+
+/// While cleaning: the water drains out of the gauge as items are cleared, the "ebb" in Ebb.
+private struct CleaningView: View {
+    let progress: Cleaner.Progress
+
+    var body: some View {
+        ZStack {
+            Tide.seaBackground
+            VStack(spacing: 18) {
+                TideGauge(fraction: max(0.06, 1 - progress.fraction),
+                          title: progress.bytesDone.bytes,
+                          subtitle: "of \(progress.bytesTotal.bytes)")
+                    .scaleEffect(0.78)
+                    .frame(height: 190)
+                VStack(spacing: 6) {
+                    Text("Cleaning…").font(.rounded(24, .bold))
+                    Text(progress.current.isEmpty ? "Getting ready" : progress.current)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(progress.detail)
+                        .font(.caption.monospaced())
+                        .opacity(0.7)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: 400)
+
+                VStack(spacing: 6) {
+                    ProgressView(value: progress.fraction)
+                        .progressViewStyle(.linear)
+                        .tint(Tide.foam)
+                        .frame(width: 320)
+                        .animation(.easeOut(duration: 0.4), value: progress.fraction)
+                    Text("\(min(progress.completed + 1, max(progress.total, 1))) of \(progress.total)")
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                if progress.detail.hasPrefix("Running") {
+                    Text("Tool commands such as conda or Docker can take a minute. Ebb is still working.")
+                        .font(.caption)
+                        .foregroundStyle(Tide.sand)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 360)
+                }
+            }
+            .padding(30)
+        }
+        .frame(width: 500, height: 460)
+        .environment(\.colorScheme, .dark)
+    }
+}
+
+// MARK: - Done
+
 /// After a cleanup: a moment of delight, then the one thing left to do (empty the Trash).
-struct CelebrationSheet: View {
+private struct CelebrationView: View {
     let report: Cleaner.Report
     let model: AppModel
 
@@ -117,7 +204,7 @@ struct CelebrationSheet: View {
                         Button { Task { await empty() } } label: { Label("Empty Trash Now", systemImage: "trash") }
                             .buttonStyle(TideButtonStyle())
                     }
-                    Button("Done") { model.cleanReport = nil }
+                    Button("Done") { model.dismissCleanFlow() }
                         .buttonStyle(GlassButtonStyle(onDark: true))
                         .keyboardShortcut(.defaultAction)
                 }
@@ -133,12 +220,16 @@ struct CelebrationSheet: View {
     private var headline: String {
         if emptied { return "\(report.movedToTrash.bytes) freed" }
         if report.movedToTrash > 0 { return "\(report.movedToTrash.bytes) cleared" }
+        if report.freedByCommands > 0 { return "About \(report.freedByCommands.bytes) freed" }
         return report.failures.isEmpty ? "All clean" : "Done, with a few hiccups"
     }
 
     private var subtitle: String {
         if emptied { return "Your Mac has room to breathe again." }
         if report.movedToTrash > 0 { return "It's in the Trash for now. Empty it to turn it into free space, or undo from the sidebar." }
+        if report.commands.contains(where: { $0.command.hasPrefix("docker") }) {
+            return "Docker removed them. Docker Desktop hands the space back to macOS as its disk image shrinks."
+        }
         return "The tools' own cleanup commands have finished."
     }
 
@@ -155,6 +246,7 @@ struct CelebrationSheet: View {
                         } label: {
                             Label(run.command, systemImage: run.succeeded ? "checkmark.circle.fill" : "xmark.circle.fill")
                                 .font(.caption.monospaced())
+                                .lineLimit(1)
                                 .foregroundStyle(run.succeeded ? Tide.foam : Tide.coral)
                         }
                     }

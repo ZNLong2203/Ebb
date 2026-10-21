@@ -3,7 +3,7 @@ import AppKit
 @Observable @MainActor
 final class AppModel {
     enum Section: String, Hashable, CaseIterable {
-        case overview, junk, largeFiles, diskMap
+        case overview, junk, docker, largeFiles, diskMap
     }
 
     enum Phase: Equatable { case welcome, scanning, ready }
@@ -21,10 +21,10 @@ final class AppModel {
     private(set) var hasFullDiskAccess = Permissions.hasFullDiskAccess
     /// Folder the disk map is zoomed into.
     var mapFocus: ScanNode?
-    /// Items waiting for the user to confirm a cleanup (drives the confirmation sheet).
-    var pendingClean: [JunkItem]?
-    /// Result of the last cleanup (drives the celebration sheet).
-    var cleanReport: CleanReportBox?
+    /// The cleanup sheet: confirm → cleaning → done, all in one sheet so it never flickers between dialogs.
+    var cleanFlow: CleanFlow?
+    let docker = DockerModel()
+    let dockerInstalled = DockerModel.isInstalled
     let cleaner = Cleaner()
 
     @ObservationIgnored private var activeProgress: ScanProgress?
@@ -121,13 +121,25 @@ final class AppModel {
 
     func requestClean(_ items: [JunkItem]) {
         guard !items.isEmpty else { return }
-        pendingClean = items
+        cleanFlow = CleanFlow(items: items)
     }
 
-    func confirmPendingClean() {
-        guard let items = pendingClean else { return }
-        pendingClean = nil
-        Task { cleanReport = CleanReportBox(report: await clean(items)) }
+    func confirmClean() {
+        guard let flow = cleanFlow, case .confirm = flow.phase else { return }
+        cleanFlow?.phase = .running
+        Task {
+            let started = Date()
+            let report = await clean(flow.items)
+            // Fast cleanups still show the progress for a moment, so it's clear something happened.
+            let shown = Date().timeIntervalSince(started)
+            if shown < 1.2 { try? await Task.sleep(for: .seconds(1.2 - shown)) }
+            cleanFlow?.phase = .done(report)
+        }
+    }
+
+    func dismissCleanFlow() {
+        if case .running = cleanFlow?.phase { return }
+        cleanFlow = nil
     }
 
     func artifactKind(for item: JunkItem) -> ProjectArtifact.Kind? {
@@ -139,6 +151,10 @@ final class AppModel {
     func clean(_ items: [JunkItem]) async -> Cleaner.Report {
         let report = await cleaner.clean(items)
         selection.subtract(items.map(\.id))
+        docker.selection.subtract(items.map(\.id))
+        if items.contains(where: { $0.id.hasPrefix("docker") }) {
+            await docker.refresh()
+        }
         scan()
         return report
     }
@@ -192,13 +208,17 @@ final class AppModel {
             // Shows the celebration without touching any files.
             var report = Cleaner.Report()
             report.movedToTrash = Int64(arg) ?? 14_800_000_000
-            cleanReport = CleanReportBox(report: report)
+            cleanFlow = CleanFlow(items: [], phase: .done(report))
         case "confirm":
-            pendingClean = selectedItems
+            requestClean(selectedItems)
         case "clean-prefix":
             // Cleans only items whose id starts with the argument, e.g. one test project's artifacts.
-            let items = allItems.filter { $0.id.hasPrefix(arg) }
-            Task { cleanReport = CleanReportBox(report: await clean(items)) }
+            let pool = allItems + (docker.snapshot.map { docker.items(in: $0) } ?? [])
+            requestClean(pool.filter { $0.id.hasPrefix(arg) })
+            confirmClean()
+        case "docker-demo":
+            docker.loadDemo(DockerSnapshot.demo)
+            section = .docker
         case "undo-all":
             _ = undoAll()
         default: break
