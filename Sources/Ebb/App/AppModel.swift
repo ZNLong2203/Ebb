@@ -195,6 +195,12 @@ final class AppModel {
             cleanReport = CleanReportBox(report: report)
         case "confirm":
             pendingClean = selectedItems
+        case "clean-prefix":
+            // Cleans only items whose id starts with the argument, e.g. one test project's artifacts.
+            let items = allItems.filter { $0.id.hasPrefix(arg) }
+            Task { cleanReport = CleanReportBox(report: await clean(items)) }
+        case "undo-all":
+            _ = undoAll()
         default: break
         }
     }
