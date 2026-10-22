@@ -204,7 +204,7 @@ private struct AppRow: View {
                     Text(lastUsedText).font(.caption).foregroundStyle(app.isUnused ? .orange : .secondary)
                 }
                 Spacer(minLength: 12)
-                if !app.leftovers.isEmpty {
+                if app.leftoversSize > 0 {
                     Text("+\(app.leftoversSize.bytes) data").font(.caption).foregroundStyle(.secondary)
                 }
                 Text(app.totalSize.bytes).monospacedDigit().fontWeight(.medium).frame(width: 84, alignment: .trailing)

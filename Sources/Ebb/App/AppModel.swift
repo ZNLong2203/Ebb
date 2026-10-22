@@ -237,6 +237,17 @@ final class AppModel {
             section = .docker
         case "undo-all":
             _ = undoAll()
+        case "layout":
+            // Writes the window's AppKit view tree with frames to the file named by the argument.
+            // A split view taller than the window means some view's minimum height is too large.
+            var lines: [String] = []
+            func dump(_ view: NSView, _ depth: Int) {
+                guard depth < 14 else { return }
+                lines.append(String(repeating: "  ", count: depth) + "\(type(of: view)) \(view.frame)")
+                view.subviews.forEach { dump($0, depth + 1) }
+            }
+            if let content = NSApp.windows.first(where: \.isVisible)?.contentView { dump(content, 0) }
+            try? lines.joined(separator: "\n").write(toFile: arg, atomically: true, encoding: .utf8)
         default: break
         }
     }

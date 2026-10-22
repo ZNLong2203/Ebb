@@ -38,9 +38,10 @@ struct DuplicatesView: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Duplicates").font(.rounded(28, .bold))
+                // No fixedSize here: outside a scroll view it would set the window's minimum height
+                // from this text wrapped at the narrowest width, pushing the whole window off screen.
                 Text("Identical files in your folders. Copies that are APFS clones already share storage, so Ebb counts only the space you'd really get back.")
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             if case .ready = model.duplicates.state {
@@ -123,8 +124,16 @@ private struct DuplicateGroupCard: View {
     let group: DuplicateGroup
     @Bindable var model: AppModel
 
+    /// Sets with many copies (e.g. a database's log files) show the first few until expanded.
+    @ViewState private var showAll = false
+    private static let collapsedCount = 4
+
     var body: some View {
         let duplicates = model.duplicates
+        let collapsible = group.files.count > Self.collapsedCount + 1
+        let visible = collapsible && !showAll ? Array(group.files.prefix(Self.collapsedCount)) : group.files
+        // Same content under different names (e.g. a rotated log): rows must name each file.
+        let namesDiffer = Set(group.files.map(\.name)).count > 1
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 Image(nsImage: IconCache.icon(forFile: group.files[0].path)).resizable().frame(width: 32, height: 32)
@@ -139,7 +148,7 @@ private struct DuplicateGroupCard: View {
                     Text("frees \(group.reclaimable.bytes)").font(.callout.weight(.semibold)).foregroundStyle(Tide.kelp)
                 }
             }
-            ForEach(group.files) { file in
+            ForEach(visible) { file in
                 let selected = duplicates.selection.contains(file.path)
                 let keptCount = group.files.filter { !duplicates.selection.contains($0.path) }.count
                 HStack(spacing: 10) {
@@ -151,10 +160,17 @@ private struct DuplicateGroupCard: View {
                             if !on { duplicates.selection.remove(file.path) }
                         }))
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(file.folder).font(.callout).lineLimit(1).truncationMode(.middle)
-                        Text("Modified \(file.modified.formatted(date: .abbreviated, time: .omitted))\(file.privateSize == 0 ? " · shares storage with another copy" : "")")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        Text(namesDiffer ? file.name : file.folder).font(.callout).lineLimit(1).truncationMode(.middle)
+                        HStack(spacing: 4) {
+                            if namesDiffer {
+                                Text(file.folder + " ·").lineLimit(1).truncationMode(.middle)
+                            }
+                            Text("Modified \(file.modified.formatted(date: .abbreviated, time: .omitted))\(file.privateSize == 0 ? " · shares storage with another copy" : "")")
+                                .lineLimit(1)
+                                .layoutPriority(1)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                     Spacer()
                     if !selected {
@@ -170,6 +186,17 @@ private struct DuplicateGroupCard: View {
                         .help("Show in Finder")
                 }
                 .padding(.leading, 4)
+            }
+            if collapsible {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showAll.toggle() }
+                } label: {
+                    Label(showAll ? "Show fewer" : "Show all \(group.files.count) copies",
+                          systemImage: showAll ? "chevron.up" : "chevron.down")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption.weight(.semibold))
+                .padding(.leading, 40)
             }
         }
         .padding(14)

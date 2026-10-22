@@ -58,14 +58,15 @@ struct SystemView: View {
 
     private var backgroundItems: some View {
         let system = model.system
-        let broken = system.items.filter(\.isBroken)
+        // Broken items installed for all users need an administrator, so only offer the ones Ebb can remove.
+        let fixable = system.items.filter { $0.isBroken && $0.isRemovable }
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label("Background items", systemImage: "power.circle.fill").font(.headline).foregroundStyle(Tide.ocean)
                 Spacer()
-                if !broken.isEmpty {
-                    FilterChip(title: "Select \(broken.filter(\.isRemovable).count) broken", symbol: "bandage", tint: Tide.coral, isOn: false) {
-                        system.selection.formUnion(broken.filter(\.isRemovable).map(\.id))
+                if !fixable.isEmpty {
+                    FilterChip(title: "Select \(fixable.count) broken", symbol: "bandage", tint: Tide.coral, isOn: false) {
+                        system.selection.formUnion(fixable.map(\.id))
                     }
                 }
             }
