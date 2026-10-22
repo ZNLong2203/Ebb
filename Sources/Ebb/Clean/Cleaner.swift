@@ -75,6 +75,15 @@ final class Cleaner {
             case .emptyTrash:
                 progress.detail = "Emptying the Trash…"
                 if let error = await emptyTrash() { report.failures.append(error) } else { report.emptiedTrash = true }
+            case .launchAgent(let target):
+                progress.detail = "Stopping and removing the login item…"
+                _ = await Self.run("launchctl bootout gui/$(id -u) '\(target.path)' 2>/dev/null; true")
+                do {
+                    try await moveToTrash(URL(fileURLWithPath: target.path), size: target.size)
+                    report.movedToTrash += target.size
+                } catch {
+                    report.failures.append("\((target.path as NSString).lastPathComponent): \(error.localizedDescription)")
+                }
             }
             progress.completed += 1
             progress.bytesDone += item.size

@@ -34,7 +34,7 @@
   "description": "A free, open-source disk cleaner for Mac that understands developer junk: package manager caches, node_modules, Docker, Xcode and large files.",
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "macOS 14 or later",
-  "softwareVersion": "0.2.0",
+  "softwareVersion": "0.3.0",
   "license": "https://opensource.org/licenses/MIT",
   "url": "https://znlong2203.github.io/Ebb/",
   "downloadUrl": "https://github.com/ZNLong2203/Ebb/releases/latest/download/Ebb.dmg",
@@ -56,6 +56,10 @@
       "acceptedAnswer": { "@type": "Answer", "text": "Yes. node_modules can always be reinstalled with npm install. Ebb only pre-selects node_modules in projects you haven't touched for over 30 days, never ones you worked on this week, and moves them to the Trash so you can undo." } },
     { "@type": "Question", "name": "Why is Docker using so much disk space on my Mac?",
       "acceptedAnswer": { "@type": "Answer", "text": "Docker Desktop stores every image, stopped container, volume and build cache inside one disk image. Ebb's Docker view lists all of them with their sizes, shows which are unused, and removes the ones you pick with Docker's own commands." } },
+    { "@type": "Question", "name": "How do I completely uninstall an app on Mac?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Dragging an app to the Trash leaves its support files, caches, preferences and launch agents in ~/Library. Ebb's Applications view finds those leftovers and moves the app and its data to the Trash together, and it also finds leftovers from apps you deleted earlier." } },
+    { "@type": "Question", "name": "How do I find duplicate files on Mac?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Ebb compares files of 1 MB or more by size and SHA-256 hash. It's APFS clone-aware: copies that already share storage are flagged, so it only shows the space you would really get back." } },
     { "@type": "Question", "name": "Is Ebb free?",
       "acceptedAnswer": { "@type": "Answer", "text": "Yes. Ebb is free and open source under the MIT license, with no subscription, account or upsell." } },
     { "@type": "Question", "name": "Does Ebb delete files permanently?",
@@ -213,6 +217,9 @@ footer a { color: var(--muted); }
         <div class="card"><h3><span class="tile" style="background:#8c7cf0">🔨</span>Xcode &amp; simulators</h3><p>DerivedData, simulator caches, device support files, archives and unavailable simulators.</p></div>
         <div class="card"><h3><span class="tile" style="background:var(--coral)">⌨️</span>Code editor caches</h3><p>Cursor, VS Code, Windsurf and JetBrains caches. Your settings and extensions are never touched.</p></div>
         <div class="card"><h3><span class="tile" style="background:#c9a15c">🗺️</span>Disk Map &amp; Large Files</h3><p>A treemap of your disk, plus every file over 100 MB with thumbnails and an "untouched for" badge.</p></div>
+        <div class="card"><h3><span class="tile" style="background:#8c7cf0">🧩</span>Complete app uninstaller</h3><p>Removes apps with their caches, preferences and launch agents, flags apps you haven't opened in 90 days, and finds leftovers from apps you already deleted.</p></div>
+        <div class="card"><h3><span class="tile" style="background:#40b37f">🪞</span>Clone-aware duplicates</h3><p>Finds identical files with SHA-256 and checks how much each copy really owns on APFS, so it never promises space you won't get back.</p></div>
+        <div class="card"><h3><span class="tile" style="background:#64748b">⚙️</span>Startup &amp; maintenance</h3><p>Lists background items and flags broken ones. One-click fixes thin Time Machine snapshots, flush DNS and rebuild Spotlight.</p></div>
       </div>
     </div>
   </section>
@@ -303,6 +310,7 @@ brew cleanup --prune=all</pre><p>Old package tarballs and downloads. Installed t
           <tr><td>Price</td><td class="yes">Free</td><td>Subscription</td><td>Paid</td><td class="yes">Free</td></tr>
           <tr><td>Open source</td><td class="yes">Yes (MIT)</td><td class="no">No</td><td class="no">No</td><td class="yes">Yes (GPL)</td></tr>
           <tr><td>Native Mac app</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">Terminal</td></tr>
+          <tr><td>Complete app uninstaller</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="no">No</td><td class="yes">Yes</td></tr>
           <tr><td>Understands developer junk</td><td class="yes">Yes</td><td>Some</td><td class="no">No (sizes only)</td><td class="yes">Yes</td></tr>
         </tbody>
       </table>
@@ -332,6 +340,8 @@ brew install --cask znlong2203/ebb/ebb</pre>
       <details open><summary>How do I clear System Data on my Mac?</summary><p>System Data is mostly caches, developer tools, Docker and Time Machine local snapshots. Ebb shows the parts it can see, explains each one and cleans it to the Trash. macOS removes snapshots and purgeable space by itself when the disk runs low.</p></details>
       <details><summary>Is it safe to delete node_modules?</summary><p>Yes. <code>npm install</code> brings it back. Ebb only pre-selects <code>node_modules</code> in projects you haven't touched for over 30 days, and you can undo from the Trash.</p></details>
       <details><summary>Why is Docker using so much space on my Mac?</summary><p>Docker Desktop stores every image, stopped container, volume and build cache in one disk image. Ebb's Docker view lists them with sizes and removes the unused ones you pick with Docker's own commands.</p></details>
+      <details><summary>How do I completely uninstall an app on Mac?</summary><p>Dragging an app to the Trash leaves its support files, caches, preferences and launch agents behind in <code>~/Library</code>. Ebb's Applications view moves the app and all of that to the Trash together, and also finds leftovers from apps you deleted earlier.</p></details>
+      <details><summary>How do I find duplicate files on Mac?</summary><p>Ebb compares files of 1 MB or more by size and SHA-256 hash. It's APFS clone-aware: copies that already share storage are flagged, so it only promises space you'd really get back.</p></details>
       <details><summary>Does Ebb delete files permanently?</summary><p>No. Files go to the Trash and Undo All puts them back. Only tools' own commands (such as <code>docker rm</code>) and emptying the Trash can't be undone, and Ebb tells you before it runs them.</p></details>
       <details><summary>Why isn't Ebb on the Mac App Store?</summary><p>App Store apps are sandboxed and can't scan your whole disk, which is the whole point of a disk cleaner.</p></details>
       <details><summary>Is Ebb really free?</summary><p>Yes. It's MIT-licensed open source, with no subscription, account, ads or tracking.</p></details>

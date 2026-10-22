@@ -91,6 +91,9 @@ struct JunkIcon: View {
             return NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)?.path
         }
         if item.id == "docker", fm.fileExists(atPath: "/Applications/Docker.app") { return "/Applications/Docker.app" }
+        // Uninstalls show the app's own icon; duplicates show the file's.
+        if item.id.hasPrefix("app:") { return String(item.id.dropFirst("app:".count)) }
+        if item.id.hasPrefix("duplicate:") { return String(item.id.dropFirst("duplicate:".count)) }
         return nil
     }
 
@@ -126,6 +129,8 @@ struct JunkIcon: View {
         case "docker-container": return ("shippingbox.fill", Tide.lagoon)
         case "docker-volume": return ("cylinder.split.1x2.fill", Tide.coral)
         case "docker-buildcache": return ("hammer.fill", Tide.sand)
+        case "orphan": return ("puzzlepiece.extension.fill", Tide.coral)
+        case "agent": return ("power", Tide.lavender)
         case "deriveddata": return ("hammer.fill", Tide.ocean)
         case "simcaches", "simulators": return ("iphone", Tide.lavender)
         case "devicesupport": return ("cable.connector", Tide.lavender)

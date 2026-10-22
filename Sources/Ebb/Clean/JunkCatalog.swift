@@ -32,8 +32,15 @@ enum CleanAction: Hashable {
     case command(String)
     /// Ask Finder to empty the Trash.
     case emptyTrash
+    /// Stop a launch agent with `launchctl bootout`, then move its plist to the Trash.
+    case launchAgent(TrashTarget)
 
-    var isUndoable: Bool { if case .trash = self { true } else { false } }
+    var isUndoable: Bool {
+        switch self {
+        case .trash, .launchAgent: true
+        case .command, .emptyTrash: false
+        }
+    }
 }
 
 struct JunkItem: Identifiable, Hashable {

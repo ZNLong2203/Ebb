@@ -3,7 +3,7 @@ import AppKit
 @Observable @MainActor
 final class AppModel {
     enum Section: String, Hashable, CaseIterable {
-        case overview, junk, docker, largeFiles, diskMap
+        case overview, junk, docker, apps, duplicates, largeFiles, diskMap, system
     }
 
     enum Phase: Equatable { case welcome, scanning, ready }
@@ -24,6 +24,9 @@ final class AppModel {
     /// The cleanup sheet: confirm → cleaning → done, all in one sheet so it never flickers between dialogs.
     var cleanFlow: CleanFlow?
     let docker = DockerModel()
+    let apps = AppsModel()
+    let duplicates = DuplicatesModel()
+    let system = SystemModel()
     let dockerInstalled = DockerModel.isInstalled
     let cleaner = Cleaner()
 
@@ -86,6 +89,9 @@ final class AppModel {
                 : Set(groups.flatMap(\.items).filter(\.isPreselected).map(\.id))
             mapFocus = nil
             phase = .ready
+            // Apps and background items don't depend on the scanned folder, but refresh them alongside.
+            apps.load(protected: result.protected)
+            system.load()
         }
     }
 
@@ -155,6 +161,11 @@ final class AppModel {
         if items.contains(where: { $0.id.hasPrefix("docker") }) {
             await docker.refresh()
         }
+        let removedDuplicates = items.filter { $0.id.hasPrefix("duplicate:") }.map { String($0.id.dropFirst("duplicate:".count)) }
+            .filter { !Scanner.exists($0) }
+        duplicates.forget(Set(removedDuplicates))
+        system.selection.subtract(items.compactMap { $0.id.hasPrefix("agent:") ? String($0.id.dropFirst("agent:".count)) : nil })
+        apps.selectedOrphans.subtract(items.compactMap { $0.id.hasPrefix("orphan:") ? String($0.id.dropFirst("orphan:".count)) : nil })
         scan()
         return report
     }
@@ -214,8 +225,13 @@ final class AppModel {
         case "clean-prefix":
             // Cleans only items whose id starts with the argument, e.g. one test project's artifacts.
             let pool = allItems + (docker.snapshot.map { docker.items(in: $0) } ?? [])
+                + apps.apps.map(apps.uninstallItem) + apps.orphans.map(apps.orphanItem)
+                + system.items.compactMap(system.cleanupItem) + duplicates.groups.flatMap { $0.files.map(duplicates.item) }
             requestClean(pool.filter { $0.id.hasPrefix(arg) })
             confirmClean()
+        case "find-duplicates":
+            duplicates.search(result?.duplicateCandidates ?? [])
+            section = .duplicates
         case "docker-demo":
             docker.loadDemo(DockerSnapshot.demo)
             section = .docker

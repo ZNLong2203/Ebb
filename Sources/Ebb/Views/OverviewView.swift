@@ -10,6 +10,7 @@ struct OverviewView: View {
                 hero
                 DiskProjection(model: model)
                 quickWins
+                moreWays
                 HStack(alignment: .top, spacing: 18) {
                     TopFolders(model: model)
                     VStack(spacing: 18) {
@@ -84,6 +85,32 @@ struct OverviewView: View {
                     ForEach(wins) { item in QuickWinCard(item: item, model: model) }
                 }
             }
+        }
+    }
+
+    private var moreWays: some View {
+        let unused = model.apps.unusedApps
+        let broken = model.system.items.filter(\.isBroken).count
+        let duplicates = model.duplicates.groups
+        return VStack(alignment: .leading, spacing: 10) {
+            Label("More ways to free space", systemImage: "sparkle.magnifyingglass").font(.headline).foregroundStyle(.secondary)
+            HStack(spacing: 14) {
+                Button { model.section = .apps } label: {
+                    SummaryTile(symbol: "moon.zzz.fill", color: .orange, title: "Unused apps",
+                                value: model.apps.apps.isEmpty ? "…" : "\(unused.count)",
+                                caption: "not opened in 90 days · \(unused.reduce(0) { $0 + $1.totalSize }.bytes)")
+                }
+                Button { model.section = .duplicates } label: {
+                    SummaryTile(symbol: "doc.on.doc.fill", color: Color(red: 0.80, green: 0.62, blue: 0.30), title: "Duplicates",
+                                value: duplicates.isEmpty ? "Find" : duplicates.reduce(0) { $0 + $1.reclaimable }.bytes,
+                                caption: duplicates.isEmpty ? "identical files, clone-aware" : "\(duplicates.count) sets of copies")
+                }
+                Button { model.section = .system } label: {
+                    SummaryTile(symbol: "bandage.fill", color: Tide.coral, title: "Broken startup items",
+                                value: model.system.isLoaded ? "\(broken)" : "…", caption: "left behind by deleted apps")
+                }
+            }
+            .buttonStyle(.plain)
         }
     }
 

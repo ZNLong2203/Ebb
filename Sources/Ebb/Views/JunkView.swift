@@ -268,6 +268,7 @@ private struct JunkRow: View {
         case .trash: "Goes to the Trash, so you can put it back."
         case .command(let command): "Runs `\(command)`. Can't be undone."
         case .emptyTrash: "Empties the Trash permanently."
+        case .launchAgent: "Stops it, then moves it to the Trash so you can put it back."
         }
     }
 
@@ -276,6 +277,7 @@ private struct JunkRow: View {
         case .trash: "arrow.uturn.backward.circle"
         case .command: "terminal"
         case .emptyTrash: "trash"
+        case .launchAgent: "power"
         }
     }
 }

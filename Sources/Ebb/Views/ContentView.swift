@@ -209,9 +209,15 @@ private struct MainView: View {
                     SidebarItem(section: .docker, title: "Docker", symbol: "ferry.fill", color: Tide.ocean,
                                 badge: model.docker.snapshot.map { ($0.imagesSize + $0.containersSize + $0.volumesSize + $0.buildCacheSize).bytes })
                 }
+                SidebarItem(section: .apps, title: "Applications", symbol: "square.grid.2x2.fill", color: Tide.lavender,
+                            badge: model.apps.apps.isEmpty ? nil : "\(model.apps.apps.count)")
+                SidebarItem(section: .duplicates, title: "Duplicates", symbol: "doc.on.doc.fill", color: Color(red: 0.80, green: 0.62, blue: 0.30),
+                            badge: model.duplicates.groups.isEmpty ? nil : model.duplicates.groups.reduce(0) { $0 + $1.reclaimable }.bytes)
                 SidebarItem(section: .largeFiles, title: "Large Files", symbol: "doc.text.magnifyingglass", color: Tide.coral,
                             badge: "\(model.result?.largeFiles.count ?? 0)")
-                SidebarItem(section: .diskMap, title: "Disk Map", symbol: "square.grid.3x3.square", color: Tide.lavender, badge: nil)
+                SidebarItem(section: .diskMap, title: "Disk Map", symbol: "square.grid.3x3.square", color: Tide.ocean, badge: nil)
+                SidebarItem(section: .system, title: "Startup & Maintenance", symbol: "gearshape.2.fill", color: Tide.slate,
+                            badge: { let broken = model.system.items.filter(\.isBroken).count; return broken > 0 ? "\(broken) broken" : nil }())
             }
             .listStyle(.sidebar)
             .safeAreaInset(edge: .top) { brand }
@@ -231,6 +237,9 @@ private struct MainView: View {
                     case .overview: OverviewView(model: model)
                     case .junk: JunkView(model: model)
                     case .docker: DockerView(model: model)
+                    case .apps: AppsView(model: model)
+                    case .duplicates: DuplicatesView(model: model)
+                    case .system: SystemView(model: model)
                     case .largeFiles: LargeFilesView(model: model)
                     case .diskMap: DiskMapView(model: model)
                     }

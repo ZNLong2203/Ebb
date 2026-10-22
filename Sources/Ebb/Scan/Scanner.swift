@@ -50,6 +50,15 @@ struct ProjectArtifact: Identifiable, Hashable {
     var projectName: String { (projectPath as NSString).lastPathComponent }
 }
 
+/// A user file big enough to be worth checking for duplicates.
+struct FileCandidate: Hashable {
+    let path: String
+    /// Logical size (bytes of content), which identical copies share.
+    let size: Int64
+    let modified: Date
+    let inode: UInt64
+}
+
 struct ScanResult {
     let root: ScanNode
     let largeFiles: [LargeFile]
@@ -59,6 +68,8 @@ struct ScanResult {
     /// Protected folders left out because Ebb has no Full Disk Access.
     let skipped: [String]
     let protected: ProtectedLocations
+    /// Files ≥ 1 MB outside app data, build folders and bundles, for the duplicate finder.
+    let duplicateCandidates: [FileCandidate]
     let duration: TimeInterval
     let finishedAt: Date
 }
@@ -107,8 +118,12 @@ enum Scanner {
         let rootNode = ScanNode(name: root, isDirectory: true, modified: Date())
 
         var largeFiles: [LargeFile] = []
+        var candidates: [FileCandidate] = []
         var fileCount = 0
         func addLooseFile(_ path: String, _ info: Info, to parent: ScanNode) {
+            if info.isRegularFile, info.logicalSize >= duplicateThreshold, !pathIsExcludedFromDuplicates(path) {
+                candidates.append(FileCandidate(path: path, size: info.logicalSize, modified: info.modified, inode: info.inode))
+            }
             parent.size += info.allocated
             parent.fileCount += 1
             fileCount += 1
@@ -187,6 +202,7 @@ enum Scanner {
             fileCount += output.fileCount
             unreadable += output.unreadable
             skipped += output.skipped
+            candidates += output.duplicateCandidates
         }
         skipped += collector.skipped
 
@@ -211,6 +227,7 @@ enum Scanner {
                           unreadableCount: unreadable,
                           skipped: skipped.sorted(),
                           protected: allProtected,
+                          duplicateCandidates: candidates,
                           duration: Date().timeIntervalSince(started),
                           finishedAt: Date())
     }
@@ -228,7 +245,10 @@ enum Scanner {
 
     struct Info {
         let isDirectory: Bool
+        let isRegularFile: Bool
         let allocated: Int64
+        let logicalSize: Int64
+        let inode: UInt64
         let modified: Date
         let accessed: Date
     }
@@ -237,9 +257,37 @@ enum Scanner {
         var st = stat()
         guard lstat(path, &st) == 0 else { return nil }
         return Info(isDirectory: (st.st_mode & S_IFMT) == S_IFDIR,
+                    isRegularFile: (st.st_mode & S_IFMT) == S_IFREG,
                     allocated: Int64(st.st_blocks) * 512,
+                    logicalSize: Int64(st.st_size),
+                    inode: UInt64(st.st_ino),
                     modified: Date(timeIntervalSince1970: TimeInterval(st.st_mtimespec.tv_sec)),
                     accessed: Date(timeIntervalSince1970: TimeInterval(st.st_atimespec.tv_sec)))
+    }
+
+    // MARK: - Duplicate candidates
+
+    static let duplicateThreshold: Int64 = 1_000_000
+
+    /// Folders whose files belong to an app, a tool or a build, where removing one "duplicate"
+    /// would break something: package folders, app data, bundles and hidden tool homes.
+    private static let duplicateExcludedNames: Set<String> = [
+        "Library", "node_modules", "bower_components", "site-packages", "dist-packages", "venv", "env",
+        "Pods", "Carthage", "DerivedData", "target", "build", "vendor", "__pycache__",
+    ]
+    private static let bundleExtensions: Set<String> = [
+        "app", "appex", "framework", "bundle", "plugin", "kext", "xpc", "photoslibrary", "musiclibrary", "tvlibrary",
+        "imovielibrary", "fcpbundle", "logicx", "band", "xcodeproj", "xcworkspace", "xcassets", "sparsebundle",
+        "pkg", "lproj", "docset", "playground", "photolibrary", "aplibrary", "migratedphotolibrary",
+    ]
+
+    static func isExcludedFromDuplicates(directoryName name: String) -> Bool {
+        name.hasPrefix(".") || duplicateExcludedNames.contains(name)
+            || bundleExtensions.contains((name as NSString).pathExtension.lowercased())
+    }
+
+    static func pathIsExcludedFromDuplicates(_ path: String) -> Bool {
+        path.split(separator: "/").dropLast().contains { isExcludedFromDuplicates(directoryName: String($0)) }
     }
 
     static func listDirectory(_ path: String) -> [String] {
@@ -280,6 +328,7 @@ private final class SubtreeWorker {
         var fileCount = 0
         var unreadable = 0
         var skipped: [String] = []
+        var duplicateCandidates: [FileCandidate] = []
     }
 
     private struct PendingArtifact {
@@ -297,6 +346,9 @@ private final class SubtreeWorker {
     private let collectDetails: Bool
     private var output = Output()
     private var stack: [ScanNode] = []
+    /// Parallel to `stack`: whether files in that folder are off-limits for the duplicate finder.
+    private var excludedStack: [Bool] = []
+    private var baseExcluded = false
     private var pendingArtifacts: [PendingArtifact] = []
     private var seenInodes = Set<UInt64>()
     private var batchFiles = 0
@@ -310,6 +362,7 @@ private final class SubtreeWorker {
     }
 
     func run(path: String) -> Output {
+        baseExcluded = Scanner.pathIsExcludedFromDuplicates(path)
         var paths: [UnsafeMutablePointer<CChar>?] = [strdup(path), nil]
         defer { free(paths[0]) }
         guard let fts = fts_open(&paths, FTS_PHYSICAL | FTS_NOCHDIR | FTS_XDEV, nil) else { return output }
@@ -366,6 +419,7 @@ private final class SubtreeWorker {
             output.node = node
         }
         stack.append(node)
+        excludedStack.append((excludedStack.last ?? baseExcluded) || Scanner.isExcludedFromDuplicates(directoryName: node.name))
         if collectDetails, pendingArtifacts.isEmpty, let artifact = detectArtifact(node: node, path: String(cString: entry.pointee.fts_path)) {
             pendingArtifacts.append(artifact)
         }
@@ -373,6 +427,7 @@ private final class SubtreeWorker {
 
     private func leaveDirectory() {
         guard let node = stack.popLast() else { return }
+        excludedStack.removeLast()
         if let parent = stack.last {
             parent.size += node.size
             parent.fileCount += node.fileCount
@@ -403,6 +458,13 @@ private final class SubtreeWorker {
         output.fileCount += 1
         batchFiles += 1
         batchBytes += allocated
+
+        if collectDetails, Int64(st.st_size) >= Scanner.duplicateThreshold, (st.st_mode & S_IFMT) == S_IFREG,
+           excludedStack.last == false {
+            output.duplicateCandidates.append(FileCandidate(
+                path: String(cString: entry.pointee.fts_path), size: Int64(st.st_size),
+                modified: Date(timeIntervalSince1970: TimeInterval(st.st_mtimespec.tv_sec)), inode: UInt64(st.st_ino)))
+        }
 
         guard collectDetails, allocated >= Scanner.fileNodeThreshold else { return }
         let modified = Date(timeIntervalSince1970: TimeInterval(st.st_mtimespec.tv_sec))

@@ -68,6 +68,26 @@ Docker Desktop keeps everything inside one big disk image, so macOS can't tell y
 
 <p align="center"><img src="docs/screenshots/docker.png" alt="Docker view: images, containers, volumes and build cache with sizes, unused items flagged"></p>
 
+### 🧩 Applications: uninstall completely
+Ebb lists every app with its size and when you last opened it. Uninstall moves the app **and** what it keeps in `~/Library` to the Trash: support files, caches, preferences, saved state, web storage and launch agents.
+- **Not opened in 90 days**: find apps you've forgotten about.
+- **Leftovers from deleted apps**: data named after apps that are no longer installed, untouched for 30+ days.
+- Apple's apps and running apps are never touched. Everything goes to the Trash, so you can undo.
+
+### 🪞 Duplicates that understand APFS
+Ebb finds identical files of 1 MB or more by size, then a sample hash, then a full SHA-256. On APFS, a copy made with Finder's Duplicate is often a **clone that shares storage** with the original, so deleting it frees nothing. Ebb asks macOS how many bytes each copy *really* owns and only promises what you'll actually get back. It keeps the oldest copy by default and never lets you remove the last one. App data, `node_modules`, `.git` and app bundles are left out.
+
+### ⚙️ Startup & Maintenance
+- **Background items**: every launch agent and daemon, with the app it belongs to. Ebb flags **broken** ones whose program was deleted, and removes yours with `launchctl bootout` plus the Trash.
+- **Maintenance**, using macOS's own tools:
+  - thin Time Machine local snapshots (a big part of "System Data")
+  - flush the DNS cache
+  - fix duplicate apps in *Open With*
+  - rebuild the Spotlight index
+
+  Admin tasks show the standard macOS password dialog.
+- **Not included on purpose**: "free up RAM", which macOS manages better itself, and stripping languages or app architectures, which breaks app signatures.
+
 ### 🗺️ Disk Map
 A treemap of the scanned folder, in which bigger blocks take more space. Click a folder to dive in, or right-click to show it in Finder or move it to the Trash.
 
@@ -157,6 +177,9 @@ App Store apps are sandboxed and can't scan your whole disk, which is the whole 
 **Does it collect any data?**
 No. Ebb makes no network requests and has no analytics. Nothing leaves your Mac.
 
+**Does Ebb "free up RAM" or remove app languages?**
+No. macOS manages memory better than a purge button can. Removing languages or architectures from apps changes signed app bundles and can stop them from opening.
+
 **How is it different from Mole, DaisyDisk or CleanMyMac?**
 - [Mole](https://github.com/tw93/Mole) is a great command-line cleaner. Ebb is a native app for people who'd rather see a map and read an explanation before deleting anything.
 - DaisyDisk is beautiful but paid, and it doesn't know what `node_modules` or a conda cache is.
@@ -196,10 +219,12 @@ They drive the UI for screenshots and tests. To publish a release, run `scripts/
 
 ## Roadmap
 
-- [ ] Duplicate file finder
-- [ ] Time Machine local snapshot thinning
+- [x] Duplicate file finder (APFS clone-aware)
+- [x] Time Machine local snapshot thinning
+- [x] App uninstaller with leftover detection
+- [x] Broken startup item detection
 - [ ] Menu bar disk monitor, plus a "disk almost full" alert in [Islet](https://github.com/ZNLong2203/Islet)
-- [ ] App uninstaller with leftover detection
+- [ ] Scheduled "you have 20 GB of junk" reminders
 - [ ] More languages
 
 Ideas and pull requests are welcome. Open an issue first for anything big.
